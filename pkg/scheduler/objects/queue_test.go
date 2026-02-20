@@ -2351,11 +2351,12 @@ func TestQuotaPreemptionSettings(t *testing.T) {
 	assert.NilError(t, err, "failed to create basic queue: %v", err)
 
 	testCases := []struct {
-		name       string
-		maxRes     map[string]string
-		conf       configs.QueueConfig
-		oldDelay   time.Duration
-		timeChange bool
+		name                       string
+		maxRes                     map[string]string
+		conf                       configs.QueueConfig
+		oldDelay                   time.Duration
+		timeChange                 bool
+		shouldApplyQuotaPreemption bool
 	}{
 		{"clearing max",
 			map[string]string{"memory": "500"},
@@ -2363,7 +2364,7 @@ func TestQuotaPreemptionSettings(t *testing.T) {
 				Resources: configs.Resources{
 					Max: nil,
 				},
-			}, 0, false},
+			}, 0, false, false},
 		{"clearing max with delay",
 			map[string]string{"memory": "500"},
 			configs.QueueConfig{
@@ -2371,7 +2372,7 @@ func TestQuotaPreemptionSettings(t *testing.T) {
 					Max: nil,
 				},
 				Properties: map[string]string{configs.QuotaPreemptionDelay: "50ms"},
-			}, 0, false},
+			}, 0, false, false},
 		{"incorrect delay",
 			map[string]string{"memory": "500"},
 			configs.QueueConfig{
@@ -2379,7 +2380,7 @@ func TestQuotaPreemptionSettings(t *testing.T) {
 					Max: nil,
 				},
 				Properties: map[string]string{configs.QuotaPreemptionDelay: "-50s"},
-			}, 0, false},
+			}, 0, false, false},
 		{"increase max with delay",
 			map[string]string{"memory": "500"},
 			configs.QueueConfig{
@@ -2387,7 +2388,7 @@ func TestQuotaPreemptionSettings(t *testing.T) {
 					Max: map[string]string{"memory": "1000"},
 				},
 				Properties: map[string]string{configs.QuotaPreemptionDelay: "50ms"},
-			}, 50 * time.Millisecond, false},
+			}, 50 * time.Millisecond, false, false},
 		{"decrease max with delay",
 			map[string]string{"memory": "500"},
 			configs.QueueConfig{
@@ -2395,7 +2396,7 @@ func TestQuotaPreemptionSettings(t *testing.T) {
 					Max: map[string]string{"memory": "100"},
 				},
 				Properties: map[string]string{configs.QuotaPreemptionDelay: "50ms"},
-			}, 50 * time.Millisecond, true},
+			}, 50 * time.Millisecond, true, true},
 		{"delay changed from 0 no max change",
 			map[string]string{"memory": "500"},
 			configs.QueueConfig{
@@ -2403,7 +2404,7 @@ func TestQuotaPreemptionSettings(t *testing.T) {
 					Max: map[string]string{"memory": "500"},
 				},
 				Properties: map[string]string{configs.QuotaPreemptionDelay: "50ms"},
-			}, 0, true},
+			}, 0, true, true},
 	}
 
 	var oldMax *resources.Resource
@@ -2434,6 +2435,8 @@ func TestQuotaPreemptionSettings(t *testing.T) {
 
 			// since preemption settings are reset, preemption should not be triggerred again during the next check
 			assert.Equal(t, parent.shouldTriggerPreemption(), false)
+
+			assert.Equal(t, parent.ShouldApplyQuotaPreemption(), tc.shouldApplyQuotaPreemption)
 		})
 	}
 }
